@@ -1,0 +1,158 @@
+# API Contracts: AI自助拍照机
+
+## 前端 -> 后端 (Tauri Commands)
+
+### 获取所有拍照模式
+
+```typescript
+// Request
+interface GetModesRequest {}
+
+interface PhotoMode {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  effects: Effect[];
+}
+
+interface Effect {
+  id: string;
+  mode_id: string;
+  name: string;
+  prompt: string;
+  thumbnail: string;
+  price_download: number;  // 分
+  price_print: number;   // 分
+}
+
+// Response
+type GetModesResponse = PhotoMode[];
+```
+
+### 创建拍照会话
+
+```typescript
+// Request
+interface CreateSessionRequest {
+  mode_id: string;
+  effect_id: string;
+}
+
+interface CreateSessionResponse {
+  session_id: string;
+  status: string;
+}
+```
+
+### 上传原始照片并生成AI照片
+
+```typescript
+// Request
+interface GeneratePhotoRequest {
+  session_id: string;
+  photo_base64: string;  // 用户照片 Base64
+}
+
+// Response
+interface GeneratePhotoResponse {
+  session_id: string;
+  generated_photo_base64: string;  // AI生成的图片 Base64
+  status: string;
+}
+```
+
+### 创建支付订单
+
+```typescript
+// Request
+interface CreateOrderRequest {
+  session_id: string;
+  order_type: 'download' | 'print';
+}
+
+// Response
+interface CreateOrderResponse {
+  order_id: string;
+  qr_code_url: string;  // 微信支付二维码链接
+  amount: number;       // 金额（分）
+}
+```
+
+### 查询订单状态
+
+```typescript
+// Request
+interface QueryOrderRequest {
+  order_id: string;
+}
+
+// Response
+interface QueryOrderResponse {
+  order_id: string;
+  status: 'pending' | 'paid' | 'cancelled' | 'refunded';
+  paid_at?: number;  // 支付时间戳
+}
+```
+
+### 下载照片
+
+```typescript
+// Request
+interface DownloadPhotoRequest {
+  session_id: string;
+}
+
+// Response
+interface DownloadPhotoResponse {
+  photo_base64: string;
+  filename: string;
+}
+```
+
+### 查询历史订单
+
+```typescript
+// Request
+interface QueryOrdersRequest {
+  limit?: number;
+  offset?: number;
+}
+
+// Response
+interface Order {
+  id: string;
+  session_id: string;
+  order_type: string;
+  amount: number;
+  status: string;
+  created_at: number;
+  paid_at?: number;
+}
+
+type QueryOrdersResponse = Order[];
+```
+
+---
+
+## 事件 (Frontend Events)
+
+### AI生成进度
+
+```typescript
+interface GenerationProgressEvent {
+  session_id: string;
+  progress: number;  // 0-100
+  status: 'processing' | 'completed' | 'failed';
+  error?: string;
+}
+```
+
+### 支付状态变化
+
+```typescript
+interface PaymentStatusEvent {
+  order_id: string;
+  status: 'pending' | 'paid' | 'cancelled' | 'refunded';
+}
+```
