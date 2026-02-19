@@ -15,14 +15,14 @@ pub fn create_order(
         _ => return Err("Invalid order type".to_string()),
     };
 
-    let conn = storage.conn.lock().map_err(|e| e.to_string())?;
+    let conn = storage.get_connection()?;
     let session_service = SessionService::new(&conn);
     session_service.create_order(&session_id, order_type, amount)
 }
 
 #[tauri::command]
 pub fn get_order(storage: State<Storage>, order_id: String) -> Result<Option<Order>, String> {
-    let conn = storage.conn.lock().map_err(|e| e.to_string())?;
+    let conn = storage.get_connection()?;
     let session_service = SessionService::new(&conn);
     session_service.get_order(&order_id)
 }
@@ -42,7 +42,7 @@ pub fn update_order_status(
         _ => return Err("Invalid order status".to_string()),
     };
 
-    let conn = storage.conn.lock().map_err(|e| e.to_string())?;
+    let conn = storage.get_connection()?;
     let session_service = SessionService::new(&conn);
     session_service.update_order_status(&order_id, status, wechat_order_id)
 }

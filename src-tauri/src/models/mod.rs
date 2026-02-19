@@ -25,6 +25,7 @@ pub struct PhotoSession {
     pub id: String,
     pub mode_id: String,
     pub effect_id: String,
+    pub style_id: Option<String>,
     pub original_photo: Option<String>,  // Base64 encoded
     pub generated_photo: Option<String>, // Base64 encoded
     pub status: SessionStatus,
@@ -69,6 +70,15 @@ impl std::str::FromStr for SessionStatus {
             _ => Err(format!("Unknown status: {}", s)),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Style {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub icon: String,
+    pub prompt_template: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

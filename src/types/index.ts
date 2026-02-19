@@ -20,6 +20,7 @@ export interface PhotoSession {
   id: string;
   mode_id: string;
   effect_id: string;
+  style_id?: string;
   original_photo?: string;
   generated_photo?: string;
   status: SessionStatus;

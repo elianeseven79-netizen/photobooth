@@ -25,9 +25,9 @@ export const api = {
   },
 
   // Photo operations
-  async generatePhoto(sessionId: string, photoBase64: string): Promise<PhotoSession> {
-    console.log('[API] generatePhoto called, sessionId:', sessionId, 'photo length:', photoBase64.length);
-    const result = await invoke<PhotoSession>('generate_photo', { sessionId, photoBase64 });
+  async generatePhoto(sessionId: string, photoBase64: string, styleId?: string): Promise<PhotoSession> {
+    console.log('[API] generatePhoto called, sessionId:', sessionId, 'photo length:', photoBase64.length, 'styleId:', styleId);
+    const result = await invoke<PhotoSession>('generate_photo', { sessionId, photoBase64, styleId });
     console.log('[API] generatePhoto completed, generated photo length:', result.generated_photo?.length || 0);
     return result;
   },
