@@ -72,16 +72,25 @@ function App() {
   };
 
   const handleStyleGenerate = async (styleId?: string) => {
-    if (!session || !capturedPhoto) return;
+    if (!session || !capturedPhoto || loading) return;
 
     console.log('[App] handleStyleGenerate called, session.id:', session.id);
     setLoading(true);
+
+    // Prevent multiple clicks
+    const currentSessionId = session.id;
+    const currentPhoto = capturedPhoto;
+
     try {
       console.log('[App] Calling API generatePhoto...');
-      const updatedSession = await api.generatePhoto(session.id, capturedPhoto, styleId || undefined);
-      console.log('[App] API returned:', updatedSession);
-      setSession(updatedSession);
-      setStep('preview');
+      const updatedSession = await api.generatePhoto(currentSessionId, currentPhoto, styleId || undefined);
+      console.log('[App] API returned, generated_photo length:', updatedSession.generated_photo?.length || 0);
+
+      // Only proceed if we're still on selectStyle step and loading is true
+      if (updatedSession.generated_photo) {
+        setSession(updatedSession);
+        setStep('preview');
+      }
     } catch (error) {
       console.error('[App] Failed to generate photo:', error);
     } finally {

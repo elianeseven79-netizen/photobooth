@@ -121,39 +121,18 @@ function Camera({ sessionId, onCapture, onBack }: CameraProps) {
   const handleConfirm = async () => {
     if (!capturedPhoto) return;
 
-    console.log('[Camera] Starting photo generation process...');
-    console.log('[Camera] Session ID:', sessionId);
-    console.log('[Camera] Photo base64 length:', capturedPhoto.length);
+    console.log('[Camera] Saving original photo...');
     setIsProcessing(true);
     setError(null);
 
-    // 设置超时 - 60秒后自动进入下一步（方便测试）
-    const timeoutId = setTimeout(() => {
-      console.warn('[Camera] Generation timeout, proceeding anyway...');
-      setIsProcessing(false);
-      onCapture();
-    }, 60000);
-
     try {
-      console.log('[Camera] Step 1: Saving original photo...');
-      await api.saveOriginalPhoto(sessionId, capturedPhoto);
-      console.log('[Camera] Step 1 complete: Original photo saved');
-
-      console.log('[Camera] Step 2: Calling MiniMax API to generate photo...');
-      const updatedSession = await api.generatePhoto(sessionId, capturedPhoto);
-      console.log('[Camera] Step 2 complete: Generated photo received');
-      console.log('[Camera] Generated photo length:', updatedSession.generated_photo?.length || 0);
-
-      clearTimeout(timeoutId);
-      // Pass the updated session with generated photo
+      // 只保存原始照片，不生成AI照片
+      const updatedSession = await api.saveOriginalPhoto(sessionId, capturedPhoto);
+      console.log('[Camera] Original photo saved');
       onCapture(updatedSession);
     } catch (err) {
-      clearTimeout(timeoutId);
-      console.error('[Camera] Error during photo generation:', err);
+      console.error('[Camera] Error saving photo:', err);
       setError(err instanceof Error ? err.message : String(err));
-      // 即使失败也进入下一步，方便测试
-      console.log('[Camera] Proceeding to preview despite error...');
-      onCapture();
     } finally {
       setIsProcessing(false);
     }
