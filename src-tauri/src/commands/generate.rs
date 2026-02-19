@@ -1,6 +1,6 @@
 use tauri::State;
 use crate::models::{PhotoSession, SessionStatus};
-use crate::services::{ModeService, MiniMaxService, SessionService, Storage, WeChatService, StyleService};
+use crate::services::{ModeService, MiniMaxService, SessionService, Storage, WeChatService};
 
 #[tauri::command]
 pub async fn generate_photo(
@@ -25,10 +25,13 @@ pub async fn generate_photo(
             .ok_or_else(|| "Session not found".to_string())?;
         eprintln!("[Generate] Got session, status={:?}", session.status);
 
-        // Check if already processing
+        // Check if already processing - fetch latest session data
         if session.status == SessionStatus::Processing {
-            eprintln!("[Generate] Already processing, returning");
-            return Ok(session);
+            eprintln!("[Generate] Already processing, fetching latest session...");
+            let latest_session = session_service.get_session(&session_id)
+                .map_err(|e| e.to_string())?
+                .ok_or_else(|| "Session not found".to_string())?;
+            return Ok(latest_session);
         }
 
         eprintln!("[Generate] Getting mode...");
@@ -44,13 +47,7 @@ pub async fn generate_photo(
             .ok_or_else(|| "Effect not found".to_string())?;
 
         let effect_prompt = effect.prompt.clone();
-
-        let final_prompt = if let Some(ref sid) = style_id {
-            let style_service = StyleService::new(&conn);
-            style_service.generate_prompt(sid, &effect_prompt)?
-        } else {
-            effect_prompt.clone()
-        };
+        let final_prompt = effect_prompt.clone();
 
         eprintln!("[Generate] Updating status to Processing...");
         session_service.update_session_status(&session_id, SessionStatus::Processing)

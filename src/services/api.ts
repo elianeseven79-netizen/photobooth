@@ -32,9 +32,9 @@ export const api = {
     return result;
   },
 
-  async saveOriginalPhoto(sessionId: string, photoBase64: string): Promise<void> {
+  async saveOriginalPhoto(sessionId: string, photoBase64: string): Promise<PhotoSession> {
     console.log('[API] saveOriginalPhoto called, sessionId:', sessionId, 'photo length:', photoBase64.length);
-    return invoke<void>('save_original_photo', { sessionId, photoBase64 });
+    return invoke<PhotoSession>('save_original_photo', { sessionId, photoBase64 });
   },
 
   async saveGeneratedPhoto(sessionId: string, photoBase64: string): Promise<void> {
