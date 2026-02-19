@@ -62,9 +62,9 @@ function App() {
     }
   };
 
-  const handlePhotoCapture = (photoBase64: string, updatedSession?: PhotoSession) => {
-    setCapturedPhoto(photoBase64);
-    if (updatedSession) {
+  const handlePhotoCapture = (updatedSession?: PhotoSession) => {
+    if (updatedSession?.original_photo) {
+      setCapturedPhoto(updatedSession.original_photo);
       setSession(updatedSession);
     }
     // Go to style selection instead of preview

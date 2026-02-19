@@ -1,15 +1,14 @@
 use crate::models::{Order, OrderStatus, OrderType, PhotoSession, SessionStatus, Step};
 use chrono::Utc;
-use std::sync::MutexGuard;
 use rusqlite::Connection;
 use uuid::Uuid;
 
 pub struct SessionService<'a> {
-    conn: &'a MutexGuard<'a, Connection>,
+    conn: &'a Connection,
 }
 
 impl<'a> SessionService<'a> {
-    pub fn new(conn: &'a MutexGuard<'a, Connection>) -> Self {
+    pub fn new(conn: &'a Connection) -> Self {
         Self { conn }
     }
 
@@ -36,6 +35,7 @@ impl<'a> SessionService<'a> {
             id,
             mode_id: mode_id.to_string(),
             effect_id: effect_id.to_string(),
+            style_id: None,
             original_photo: None,
             generated_photo: None,
             status: SessionStatus::SelectingMode,
@@ -46,22 +46,23 @@ impl<'a> SessionService<'a> {
 
     pub fn get_session(&self, id: &str) -> Result<Option<PhotoSession>, String> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, mode_id, effect_id, original_photo, generated_photo, status, created_at, updated_at
+            "SELECT id, mode_id, effect_id, style_id, original_photo, generated_photo, status, created_at, updated_at
              FROM photo_sessions WHERE id = ?1"
         ).map_err(|e| e.to_string())?;
 
         let mut rows = stmt.query([id]).map_err(|e| e.to_string())?;
         if let Some(row) = rows.next().map_err(|e| e.to_string())? {
-            let status_str: String = row.get(5).unwrap_or_default();
+            let status_str: String = row.get(6).unwrap_or_default();
             Ok(Some(PhotoSession {
                 id: row.get(0).unwrap_or_default(),
                 mode_id: row.get(1).unwrap_or_default(),
                 effect_id: row.get(2).unwrap_or_default(),
-                original_photo: row.get(3).ok(),
-                generated_photo: row.get(4).ok(),
+                style_id: row.get(3).ok(),
+                original_photo: row.get(4).ok(),
+                generated_photo: row.get(5).ok(),
                 status: status_str.parse().unwrap_or(SessionStatus::SelectingMode),
-                created_at: row.get::<_, i64>(6).unwrap_or(0),
-                updated_at: row.get::<_, i64>(7).unwrap_or(0),
+                created_at: row.get::<_, i64>(7).unwrap_or(0),
+                updated_at: row.get::<_, i64>(8).unwrap_or(0),
             }))
         } else {
             Ok(None)
@@ -91,6 +92,15 @@ impl<'a> SessionService<'a> {
         self.conn.execute(
             "UPDATE photo_sessions SET generated_photo = ?1, updated_at = ?2 WHERE id = ?3",
             rusqlite::params![photo_base64, now, id],
+        ).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn update_session_style(&self, id: &str, style_id: &str) -> Result<(), String> {
+        let now = Utc::now().timestamp();
+        self.conn.execute(
+            "UPDATE photo_sessions SET style_id = ?1, updated_at = ?2 WHERE id = ?3",
+            rusqlite::params![style_id, now, id],
         ).map_err(|e| e.to_string())?;
         Ok(())
     }

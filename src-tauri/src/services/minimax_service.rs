@@ -2,8 +2,20 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::env;
 
+// Request struct without subject_reference (text-to-image)
 #[derive(Debug, Serialize)]
 struct MiniMaxRequest {
+    model: String,
+    prompt: String,
+    #[serde(rename = "aspect_ratio")]
+    aspect_ratio: String,
+    #[serde(rename = "response_format")]
+    response_format: String,
+}
+
+// Request struct with subject_reference (image-to-image)
+#[derive(Debug, Serialize)]
+struct MiniMaxRequestWithRef {
     model: String,
     prompt: String,
     #[serde(rename = "aspect_ratio")]
@@ -56,7 +68,10 @@ impl MiniMaxService {
         tracing::info!("MiniMax service initialized: use_mock={}, FORCE_MOCK={}, has_api_key={}", use_mock, force_mock, !api_key.is_empty());
 
         Ok(Self {
-            client: Client::new(),
+            client: Client::builder()
+                .timeout(std::time::Duration::from_secs(60))
+                .build()
+                .map_err(|e| format!("Failed to create HTTP client: {}", e))?,
             api_key,
             base_url: "https://api.minimaxi.com".to_string(),
             use_mock,
@@ -81,34 +96,37 @@ impl MiniMaxService {
             return Ok(mock_image);
         }
 
-        tracing::info!("[MiniMax] Calling MiniMax API...");
+        tracing::info!("[MiniMax] Calling MiniMax API (text-to-image first to test)...");
+        tracing::info!("[MiniMax] API URL: {}/v1/image_generation", self.base_url);
 
-        let request = MiniMaxRequest {
+        // First, try text-to-image (without subject_reference) to test if API works
+        let text_request = MiniMaxRequest {
             model: "image-01".to_string(),
             prompt: prompt.to_string(),
             aspect_ratio: "3:4".to_string(),
             response_format: "base64".to_string(),
-            subject_reference: vec![SubjectReference {
-                r#type: "character".to_string(),
-                image_file: user_photo_base64.to_string(),
-            }],
         };
+
+        tracing::info!("[MiniMax] Sending text-to-image request...");
 
         let response = self
             .client
             .post(format!("{}/v1/image_generation", self.base_url))
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Content-Type", "application/json")
-            .json(&request)
+            .json(&text_request)
             .send()
             .await
             .map_err(|e| format!("Failed to send request: {}", e))?;
 
+        tracing::info!("[MiniMax] Response received, status: {}", response.status());
+
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
+            tracing::warn!("MiniMax API error {}: {}", status, body);
             // Fall back to mock on API error
-            tracing::warn!("MiniMax API error {}: {}, using mock", status, body);
+            tracing::warn!("[MiniMax] API failed, using mock");
             let mock_image = self.generate_placeholder_image();
             return Ok(mock_image);
         }
@@ -131,7 +149,7 @@ impl MiniMaxService {
     }
 
     /// Generate a simple placeholder image directly (no network request)
-    fn generate_placeholder_image(&self) -> String {
+    pub fn generate_placeholder_image(&self) -> String {
         // Use a hardcoded small valid base64 image (1x1 purple pixel JPEG)
         // This is a minimal valid JPEG that browsers can display
         // Strip the "data:image/jpeg;base64," prefix

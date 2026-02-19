@@ -1,13 +1,12 @@
 use crate::models::{Effect, PhotoMode};
-use std::sync::MutexGuard;
 use rusqlite::Connection;
 
 pub struct ModeService<'a> {
-    conn: &'a MutexGuard<'a, Connection>,
+    conn: &'a Connection,
 }
 
 impl<'a> ModeService<'a> {
-    pub fn new(conn: &'a MutexGuard<'a, Connection>) -> Self {
+    pub fn new(conn: &'a Connection) -> Self {
         Self { conn }
     }
 
