@@ -96,25 +96,31 @@ impl MiniMaxService {
             return Ok(mock_image);
         }
 
-        tracing::info!("[MiniMax] Calling MiniMax API (text-to-image first to test)...");
+        tracing::info!("[MiniMax] Calling MiniMax API (image-to-image)...");
         tracing::info!("[MiniMax] API URL: {}/v1/image_generation", self.base_url);
 
-        // First, try text-to-image (without subject_reference) to test if API works
-        let text_request = MiniMaxRequest {
+        // Image-to-image: add data URL prefix to base64
+        let image_with_prefix = format!("data:image/jpeg;base64,{}", user_photo_base64);
+
+        let i2i_request = MiniMaxRequestWithRef {
             model: "image-01".to_string(),
             prompt: prompt.to_string(),
             aspect_ratio: "3:4".to_string(),
             response_format: "base64".to_string(),
+            subject_reference: vec![SubjectReference {
+                r#type: "character".to_string(),
+                image_file: image_with_prefix,
+            }],
         };
 
-        tracing::info!("[MiniMax] Sending text-to-image request...");
+        tracing::info!("[MiniMax] Sending image-to-image request with subject_reference...");
 
         let response = self
             .client
             .post(format!("{}/v1/image_generation", self.base_url))
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Content-Type", "application/json")
-            .json(&text_request)
+            .json(&i2i_request)
             .send()
             .await
             .map_err(|e| format!("Failed to send request: {}", e))?;
@@ -125,10 +131,49 @@ impl MiniMaxService {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
             tracing::warn!("MiniMax API error {}: {}", status, body);
-            // Fall back to mock on API error
-            tracing::warn!("[MiniMax] API failed, using mock");
-            let mock_image = self.generate_placeholder_image();
-            return Ok(mock_image);
+
+            // Fall back to text-to-image if image-to-image fails
+            tracing::warn!("[MiniMax] Image-to-image failed, trying text-to-image...");
+
+            let text_request = MiniMaxRequest {
+                model: "image-01".to_string(),
+                prompt: prompt.to_string(),
+                aspect_ratio: "3:4".to_string(),
+                response_format: "base64".to_string(),
+            };
+
+            let response = self
+                .client
+                .post(format!("{}/v1/image_generation", self.base_url))
+                .header("Authorization", format!("Bearer {}", self.api_key))
+                .header("Content-Type", "application/json")
+                .json(&text_request)
+                .send()
+                .await
+                .map_err(|e| format!("Failed to send request: {}", e))?;
+
+            if !response.status().is_success() {
+                let status = response.status();
+                let body = response.text().await.unwrap_or_default();
+                tracing::warn!("Text-to-image also failed {}: {}", status, body);
+                let mock_image = self.generate_placeholder_image();
+                return Ok(mock_image);
+            }
+
+            let result: MiniMaxResponse = response
+                .json()
+                .await
+                .map_err(|e| format!("Failed to parse response: {}", e))?;
+
+            let generated_image = result
+                .data
+                .image_base64
+                .into_iter()
+                .next()
+                .ok_or_else(|| "No image in response".to_string())?;
+
+            tracing::info!("[MiniMax] Text-to-image fallback success, length: {}", generated_image.len());
+            return Ok(generated_image);
         }
 
         let result: MiniMaxResponse = response
